@@ -135,7 +135,7 @@ def card_search():
     card_results = []
     print("Compiling results...")
 
-    # Error handling
+    # Display data based on simple search selection
     if data["show_small"] == "0":
         # Simple search off
         search = s.find("div", id="searchResults").find("table", id="searchResult-table")
@@ -144,7 +144,6 @@ def card_search():
             card_info = get_card_info(main_site, card.a["href"].split("=")[1])
             card_results.append(card_info)
 
-        #print(card_links)
 
     else:
         # Simple search on
@@ -156,7 +155,7 @@ def card_search():
 
     print("Finished compilation.")
 
-    # Return links for previous/next page in case of multiple pages
+    # TODO: Return links for previous/next page in case of multiple pages
     pages = s.find("p", class_="pageLink").find_all("a", rel=True)
     #if pages.a["rel"]
     return card_results
@@ -169,9 +168,29 @@ def hotc_search():
     soup = BeautifulSoup(res.content, "lxml")
 
     # find the card search forms
-    forms = soup.find("form", action="wscardsearch.html").table.find_all("tr")
+    forms = soup.find("form", action="wscardsearch.html")
     details = {}
-    print(forms)
+    action = forms["action"].lower()
+    method = forms["method"].lower()
+    inputs = []
+    for selections in forms.find_all("select"):
+        sel_options = []
+        for val in selections.find_all("option"):
+            sel_options.append((val["value"], val.text))
+        sel_name = selections["name"]
+        sel_value = ""
+        inputs.append({"name": sel_name, "value": sel_value, "options": sel_options})
+
+    details["action"] = action
+    details["method"] = method
+    details["inputs"] = inputs
+    #print(details)
+
+    data = {}
+    for sel_tag in details["inputs"]:
+        pass
+
+    # print(data)
 
 
 def main():
@@ -196,43 +215,25 @@ def main():
     # original LSS/W45-E005
     # test AB/W31-E058
     # climax 1 AB/W31-E101
+
+    # cards = card_search()
+    # print(cards)
+
+    # card = cards[0]
+    # card = stats
+
     hotc_search()
-    #stats = get_card_info(main_site_url, test_id)
-    #print(stats)
-    #test = input("Enter card ID: ")
-    #card_stats = get_card_info(main_site_url, test)
-    #for key in card_stats.keys():
-        #print("%s: %s" % (key, card_stats[key]))
 
     #main_path = os.path.normpath(os.getcwd() + os.sep + os.pardir + os.sep + "\card_viewer")
     #print(main_path)
 
-    #cards = card_search()
-    # save image to file
-    #print(cards)
-    #print(len(cards))
-
-    #card = cards[0]
-    #card = stats
     #img_link = main_site_url + card["Card Img"]
-
-
-    #with open(main_path + os.sep + card["Card No."].replace("/","_") + ".png", "wb") as h:
-        #response = requests.get(card_img_link, stream=True)
-
-        #if not response.ok:
-            #print(response)
-
-        #for block in response.iter_content(1024):
-            #if not block:
-                #break
-
-            #h.write(block)
 
     # original save image to file
     #output = Image.open(requests.get(card_img_link, stream=True).raw)
     #output.save(card_id + ".png")
 
+    # Troubleshooting downloading card images
     #for card in cards:
         #img_link = main_site_url + card["Card Img"]
         #try:
