@@ -3,6 +3,7 @@ from PIL import Image
 import requests
 from requests_html import HTMLSession
 from urllib.parse import urljoin
+from selenium import webdriver
 import os
 
 # References used:
@@ -78,119 +79,91 @@ def card_search():
     url = main_site + "/cardlist/cardsearch/exec"
     session = HTMLSession()
     res = session.get(url)
-    soup = BeautifulSoup(res.content, "html.parser")
+    soup = BeautifulSoup(res.content, "lxml")
+    driver = webdriver.Firefox()
+    driver.get(url)
 
     # find the card search forms
-    forms = soup.find_all("form", class_="cardSearchForm")
+    #forms = soup.find_all("form", class_="cardSearchForm")
+    test = driver.find_elements_by_tag_name("form")
+    print(test)
+
 
     # create a dictionary of the required forms to fill out
-    details = {}
-    form_names = ["All these words","Any of these words","None of these words","Target card name",
-                  "Target special attributes", "Target text", "Target card number",
-                  "Has Counter ability", "Has Clock ability", "Show simple list"]
-    for form in forms:
-        action = form.attrs.get("action").lower()
-        method = form.attrs.get("method", "get").lower()
-        inputs = []
-        for input_tag in form.find_all("input"):
-            in_type = input_tag.attrs.get("type","text")
-            in_name = input_tag.attrs.get("name")
-            in_value = input_tag.attrs.get("value","")
-            inputs.append({"type": in_type, "name": in_name, "value": in_value})
-
-        details["action"] = action
-        details["method"] = method
-        details["inputs"] = inputs
-
-    #print(details)
-
-    # create data to be submitted
-    data = {}
-    counter = 0
-    for input_tag in details["inputs"]:
-        if input_tag["type"] == "hidden":
-            data[input_tag["name"]] = input_tag["value"]
-        elif input_tag["type"] != "submit":
-            value = input("Enter value for '%s' (input type: %s): " % (form_names[counter], input_tag["type"]))
-            if value == "":
-                if input_tag["type"] == "checkbox":
-                    data[input_tag["name"]] = 1
-                else:
-                    data[input_tag["name"]] = input_tag["value"]
-            else:
-                data[input_tag["name"]] = value
-            counter += 1
-
-    #print(data)
-
-    new_url = urljoin(url, details["action"])
-
-    if details["method"] == "post":
-        res = session.post(new_url, data=data)
-    elif details["method"] == "get":
-        res = session.get(new_url, params=data)
-
-    s = BeautifulSoup(res.content, "lxml")
-
-    card_results = []
-    print("Compiling results...")
-
-    # Display data based on simple search selection
-    if data["show_small"] == "0":
-        # Simple search off
-        search = s.find("div", id="searchResults").find("table", id="searchResult-table")
-        card_links = search.find_all("th")
-        for card in card_links:
-            card_info = get_card_info(main_site, card.a["href"].split("=")[1])
-            card_results.append(card_info)
-
-
-    else:
-        # Simple search on
-        search = s.find("div", id="searchResults").find("table", id="searchResult-table-simple")
-        card_rows = search.find_all("tr")[1:]     # skip the first table row because it is only labels
-        for row in card_rows:
-            card_info = get_card_info(main_site, row.td.text)
-            card_results.append(card_info)
-
-    print("Finished compilation.")
-
-    # TODO: Return links for previous/next page in case of multiple pages
-    pages = s.find("p", class_="pageLink").find_all("a", rel=True)
-    #if pages.a["rel"]
-    return card_results
-
-def hotc_search():
-    # uses the Heart of the Cards site to support Japanese cards
-    site_url = "https://www.heartofthecards.com/code/wscardsearch.html"
-    session = HTMLSession()
-    res = session.get(site_url)
-    soup = BeautifulSoup(res.content, "lxml")
-
-    # find the card search forms
-    forms = soup.find("form", action="wscardsearch.html")
-    details = {}
-    action = forms["action"].lower()
-    method = forms["method"].lower()
-    inputs = []
-    for selections in forms.find_all("select"):
-        sel_options = []
-        for val in selections.find_all("option"):
-            sel_options.append((val["value"], val.text))
-        sel_name = selections["name"]
-        sel_value = ""
-        inputs.append({"name": sel_name, "value": sel_value, "options": sel_options})
-
-    details["action"] = action
-    details["method"] = method
-    details["inputs"] = inputs
-    #print(details)
-
-    data = {}
-    for sel_tag in details["inputs"]:
-        pass
-
-    # print(data)
+    # details = {}
+    # form_names = ["All these words","Any of these words","None of these words","Target card name",
+    #               "Target special attributes", "Target text", "Target card number",
+    #               "Has Counter ability", "Has Clock ability", "Show simple list"]
+    # for form in forms:
+    #     action = form.attrs.get("action").lower()
+    #     method = form.attrs.get("method", "get").lower()
+    #     inputs = []
+    #     for input_tag in form.find_all("input"):
+    #         in_type = input_tag.attrs.get("type","text")
+    #         in_name = input_tag.attrs.get("name")
+    #         in_value = input_tag.attrs.get("value","")
+    #         inputs.append({"type": in_type, "name": in_name, "value": in_value})
+    #
+    #     details["action"] = action
+    #     details["method"] = method
+    #     details["inputs"] = inputs
+    #
+    # #print(details)
+    #
+    # # create data to be submitted
+    # data = {}
+    # counter = 0
+    # for input_tag in details["inputs"]:
+    #     if input_tag["type"] == "hidden":
+    #         data[input_tag["name"]] = input_tag["value"]
+    #     elif input_tag["type"] != "submit":
+    #         value = input("Enter value for '%s' (input type: %s): " % (form_names[counter], input_tag["type"]))
+    #         if value == "":
+    #             if input_tag["type"] == "checkbox":
+    #                 data[input_tag["name"]] = 1
+    #             else:
+    #                 data[input_tag["name"]] = input_tag["value"]
+    #         else:
+    #             data[input_tag["name"]] = value
+    #         counter += 1
+    #
+    # #print(data)
+    #
+    # new_url = urljoin(url, details["action"])
+    #
+    # if details["method"] == "post":
+    #     res = session.post(new_url, data=data)
+    # elif details["method"] == "get":
+    #     res = session.get(new_url, params=data)
+    #
+    # s = BeautifulSoup(res.content, "lxml")
+    #
+    # card_results = []
+    # print("Compiling results...")
+    #
+    # # Display data based on simple search selection
+    # if data["show_small"] == "0":
+    #     # Simple search off
+    #     search = s.find("div", id="searchResults").find("table", id="searchResult-table")
+    #     card_links = search.find_all("th")
+    #     for card in card_links:
+    #         card_info = get_card_info(main_site, card.a["href"].split("=")[1])
+    #         card_results.append(card_info)
+    #
+    # else:
+    #     # Simple search on
+    #     search = s.find("div", id="searchResults").find("table", id="searchResult-table-simple")
+    #     card_rows = search.find_all("tr")[1:]     # skip the first table row because it is only labels
+    #     for row in card_rows:
+    #         card_info = get_card_info(main_site, row.td.text)
+    #         card_results.append(card_info)
+    #
+    # print("Finished compilation.")
+    #
+    # # TODO: Return links for previous/next page in case of multiple pages
+    # pages = s.find("p", class_="pageLink").find_all("a", rel=True)
+    # #if pages.a["rel"]
+    # return card_results
 
 
 def main():
@@ -198,34 +171,36 @@ def main():
     # main site URL used later for getting image link
     main_site_url = "https://en.ws-tcg.com"
     url = "https://en.ws-tcg.com/cardlist/list/?cardno=FZ/S17-TE04"
+    # TODO: add in support for Japanese site
+
 
     # extract page and convert to HTML
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text, 'html.parser')
+    #r = requests.get(url)
+    #soup = BeautifulSoup(r.text, 'html.parser')
 
     # search for card image
-    card_img = soup.find("td", class_="graphic").img
+    #card_img = soup.find("td", class_="graphic").img
     #print(card_img)
     # get card image link and isolate card ID
-    card_img_link = main_site_url + card_img["src"]
+    #card_img_link = main_site_url + card_img["src"]
     #print(card_img_link)
-    card_id = card_img["src"].split("/")[-1].split(".")[0]
+    #card_id = card_img["src"].split("/")[-1].split(".")[0]
 
-    test_id = "FZ/S17-TE04"
+    #test_id = "FZ/S17-TE04"
     # original LSS/W45-E005
     # test AB/W31-E058
     # climax 1 AB/W31-E101
 
-    # cards = card_search()
-    # print(cards)
+    cards = card_search()
+
+    #print(cards)
 
     # card = cards[0]
     # card = stats
 
-    hotc_search()
-
-    #main_path = os.path.normpath(os.getcwd() + os.sep + os.pardir + os.sep + "\card_viewer")
-    #print(main_path)
+    # print(cards)
+    # main_path = os.path.normpath(os.getcwd() + os.sep + os.pardir + os.sep + "\card_viewer")
+    # print(main_path)
 
     #img_link = main_site_url + card["Card Img"]
 
@@ -245,4 +220,5 @@ def main():
             #print("Reconnecting to website...")
             #time.sleep(5)
 
-main()
+if __name__ == '__main__':
+    main()
