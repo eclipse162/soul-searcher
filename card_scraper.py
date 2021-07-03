@@ -80,38 +80,62 @@ def card_search():
     session = HTMLSession()
     res = session.get(url)
     soup = BeautifulSoup(res.content, "lxml")
-    driver = webdriver.Firefox()
-    driver.get(url)
+    #driver = webdriver.Firefox()
+    #driver.get(url)
 
     # find the card search forms
-    #forms = soup.find_all("form", class_="cardSearchForm")
-    test = driver.find_elements_by_tag_name("form")
-    print(test)
-
+    initial_form = soup.find("form", class_="cardSearchForm")
+    forms = soup.find("form", class_="cardSearchForm").table.find_all("td")
+    # forms = soup.find("form", class_="cardSearchForm").table.find_all("tr")
+    #print(forms)
 
     # create a dictionary of the required forms to fill out
-    # details = {}
+    details = {}
     # form_names = ["All these words","Any of these words","None of these words","Target card name",
     #               "Target special attributes", "Target text", "Target card number",
     #               "Has Counter ability", "Has Clock ability", "Show simple list"]
-    # for form in forms:
-    #     action = form.attrs.get("action").lower()
-    #     method = form.attrs.get("method", "get").lower()
-    #     inputs = []
-    #     for input_tag in form.find_all("input"):
-    #         in_type = input_tag.attrs.get("type","text")
-    #         in_name = input_tag.attrs.get("name")
-    #         in_value = input_tag.attrs.get("value","")
-    #         inputs.append({"type": in_type, "name": in_name, "value": in_value})
-    #
-    #     details["action"] = action
-    #     details["method"] = method
-    #     details["inputs"] = inputs
-    #
-    # #print(details)
+    action = initial_form.attrs.get("action").lower()
+    method = initial_form.attrs.get("method", "get").lower()
+    inputs = []
+    for input_tag in forms:
+        if input_tag.input:
+            in_type = input_tag.input["type"]
+            in_name = input_tag.input["name"]
+            in_value = input_tag.attrs.get("value","")
+            inputs.append({"type": in_type, "name": in_name, "value": in_value})
+
+        elif input_tag.span:
+            #TODO: detect span attributes
+            in_type = input_tag.span["class"]
+            in_name = input_tag.span["name"]
+            in_value = input_tag.span.attrs.get("value",0)
+            inputs.append({"type": in_type, "name": in_name, "value": in_value})
+
+        # elif input_tag.select:
+        #     select_tags = set(input_tag.contents)
+        #     if '\n' in select_tags:
+        #         select_tags.remove('\n')
+        #
+        #     if "～\n" in select_tags:
+        #         select_tags.remove("～\n")
+        #
+        #     for item in select_tags:
+        #         in_name = item["name"]
+        #         in_value = item.attrs.get("value","")
+        #         options = []
+        #         for op in item.find_all("option"):
+        #             options.append((op["value"], op.text))
+        #
+        #         inputs.append({"name": in_name, "value": in_value, "option": options})
+
+    details["action"] = action
+    details["method"] = method
+    details["inputs"] = inputs
+
+    print(details)
     #
     # # create data to be submitted
-    # data = {}
+    data = {}
     # counter = 0
     # for input_tag in details["inputs"]:
     #     if input_tag["type"] == "hidden":
