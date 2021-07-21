@@ -97,42 +97,51 @@ def card_search():
     action = initial_form.attrs.get("action").lower()
     method = initial_form.attrs.get("method", "get").lower()
     inputs = []
+    target_input_methods = ["text", "checkbox"]
     for input_tag in forms:
-        if input_tag.input:
-            in_type = input_tag.input["type"]
-            in_name = input_tag.input["name"]
-            in_value = input_tag.attrs.get("value","")
-            inputs.append({"type": in_type, "name": in_name, "value": in_value})
+        query_input = input_tag.find_all("input")
+        #print(query_input)
+        if query_input:
+            for item in query_input:
+                if item["type"] in target_input_methods:
+                    in_type = item["type"]
+                    in_name = item["name"]
+                    in_value = item.attrs.get("value","")
+                    inputs.append({"type": in_type, "name": in_name, "value": in_value})
 
-        elif input_tag.span:
-            #TODO: detect span attributes
-            in_type = input_tag.span["class"]
-            in_name = input_tag.span["name"]
-            in_value = input_tag.span.attrs.get("value",0)
-            inputs.append({"type": in_type, "name": in_name, "value": in_value})
+        query_span = input_tag.find_all("span")
+        #print(query_span)
+        if query_span:
+            for item in query_span:
+                if item.span:
+                    print("span")
+                # TODO: complete span detection (span checkboxes)
+                # try:
+                #     if item["class"] in target_input_methods:
+                #         in_type = item["class"]
+                #         in_name = item["name"]
+                #         in_value = item.attrs.get("value",0)
+                #         print({"type": in_type, "name": in_name, "value": in_value})
+                #         inputs.append({"type": in_type, "name": in_name, "value": in_value})
+                # except KeyError:
+                #     pass
 
-        # elif input_tag.select:
-        #     select_tags = set(input_tag.contents)
-        #     if '\n' in select_tags:
-        #         select_tags.remove('\n')
-        #
-        #     if "～\n" in select_tags:
-        #         select_tags.remove("～\n")
-        #
-        #     for item in select_tags:
-        #         in_name = item["name"]
-        #         in_value = item.attrs.get("value","")
-        #         options = []
-        #         for op in item.find_all("option"):
-        #             options.append((op["value"], op.text))
-        #
-        #         inputs.append({"name": in_name, "value": in_value, "option": options})
+        query_select = input_tag.find_all("select")
+        if query_select:
+            for item in query_select:
+                in_name = item["name"]
+                in_value = item.attrs.get("value","0")
+                options = []
+                select_tags = set(item.contents)
+                for elem in select_tags:
+                    options.append((elem["value"], elem.text))
+                inputs.append({"name": in_name, "value": in_value, "option": options})
 
     details["action"] = action
     details["method"] = method
     details["inputs"] = inputs
 
-    print(details)
+    #print(details["inputs"])
     #
     # # create data to be submitted
     data = {}
@@ -195,9 +204,6 @@ def main():
     # main site URL used later for getting image link
     main_site_url = "https://en.ws-tcg.com"
     url = "https://en.ws-tcg.com/cardlist/list/?cardno=FZ/S17-TE04"
-    # TODO: add in support for Japanese site
-
-
     # extract page and convert to HTML
     #r = requests.get(url)
     #soup = BeautifulSoup(r.text, 'html.parser')
