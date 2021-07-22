@@ -97,45 +97,32 @@ def card_search():
     action = initial_form.attrs.get("action").lower()
     method = initial_form.attrs.get("method", "get").lower()
     inputs = []
-    target_input_methods = ["text", "checkbox"]
+    target_input_methods = ["text", "checkbox", "hidden", "submit"]
     for input_tag in forms:
         query_input = input_tag.find_all("input")
-        #print(query_input)
         if query_input:
             for item in query_input:
                 if item["type"] in target_input_methods:
                     in_type = item["type"]
                     in_name = item["name"]
                     in_value = item.attrs.get("value","")
-                    inputs.append({"type": in_type, "name": in_name, "value": in_value})
+                    in_id = ""
+                    if "id" in item.attrs.keys():
+                        in_id = item["id"]
 
-        query_span = input_tag.find_all("span")
-        #print(query_span)
-        if query_span:
-            for item in query_span:
-                if item.span:
-                    print("span")
-                # TODO: complete span detection (span checkboxes)
-                # try:
-                #     if item["class"] in target_input_methods:
-                #         in_type = item["class"]
-                #         in_name = item["name"]
-                #         in_value = item.attrs.get("value",0)
-                #         print({"type": in_type, "name": in_name, "value": in_value})
-                #         inputs.append({"type": in_type, "name": in_name, "value": in_value})
-                # except KeyError:
-                #     pass
+                    inputs.append({"type": in_type, "id": in_id, "name": in_name, "value": in_value})
 
         query_select = input_tag.find_all("select")
         if query_select:
             for item in query_select:
+                in_type = "select"
                 in_name = item["name"]
                 in_value = item.attrs.get("value","0")
                 options = []
                 select_tags = set(item.contents)
                 for elem in select_tags:
                     options.append((elem["value"], elem.text))
-                inputs.append({"name": in_name, "value": in_value, "option": options})
+                inputs.append({"type": in_type, "name": in_name, "value": in_value, "options": options})
 
     details["action"] = action
     details["method"] = method
@@ -146,35 +133,95 @@ def card_search():
     # # create data to be submitted
     data = {}
     # counter = 0
-    # for input_tag in details["inputs"]:
-    #     if input_tag["type"] == "hidden":
-    #         data[input_tag["name"]] = input_tag["value"]
-    #     elif input_tag["type"] != "submit":
-    #         value = input("Enter value for '%s' (input type: %s): " % (form_names[counter], input_tag["type"]))
-    #         if value == "":
-    #             if input_tag["type"] == "checkbox":
-    #                 data[input_tag["name"]] = 1
-    #             else:
-    #                 data[input_tag["name"]] = input_tag["value"]
-    #         else:
-    #             data[input_tag["name"]] = value
-    #         counter += 1
-    #
-    # #print(data)
-    #
-    # new_url = urljoin(url, details["action"])
-    #
-    # if details["method"] == "post":
-    #     res = session.post(new_url, data=data)
-    # elif details["method"] == "get":
-    #     res = session.get(new_url, params=data)
-    #
-    # s = BeautifulSoup(res.content, "lxml")
-    #
-    # card_results = []
-    # print("Compiling results...")
-    #
-    # # Display data based on simple search selection
+    for input_tag in details["inputs"]:
+        if input_tag["type"] == "hidden":
+            data[input_tag["name"]] = input_tag["value"]
+        elif input_tag["type"] != "submit":
+            name = ""
+            if input_tag["type"] == "select":
+                name = input_tag["name"]
+                # flag for staying inside selection tag
+                options = [item_tuple[0] for item_tuple in input_tag["options"]]
+                in_selection = True
+                while in_selection:
+                    value = input("Enter value for '%s' (input type: %s) (type 'o' to see options): " % (name, input_tag["type"]))
+                    if value.lower() == "o":
+                        # flag for staying inside selection tag's option pages
+                        in_pages = True
+                        page = 1
+                        while in_pages:
+                            # pages are separated by showing 10 items at a time
+                            start_index = 10
+                            end_index = 10
+                            print("=" * 15 + " %s Options: " % input_tag["name"] + "=" * 15)
+                            for item in sorted(input_tag["options"][start_index * (page - 1):end_index * page]):
+                                print("%s  Key: %s" % (item[1], item[0]))
+                            print("=" * 15 + "=" * 15, "\n(Current page: %d)\n" % page)
+                            prompt = input("Enter key or  type 'prev'/'next' to navigate pages: ")
+                            if prompt.lower() in ("prev", "p"):
+                                if page > 1:
+                                    page -= 1
+                                start_index *= (page - 1)
+                                end_index *= page
+                                print(input_tag["options"][start_index * page:int(end_index * page)], "=" * 15 + "=" * 15,
+                                      "\n(Current page: %d)\n" % page)
+                            elif prompt.lower() in ("next", "n"):
+                                if (end_index * page) > len(input_tag["options"]):
+                                    # properly display the last page if not a multiple of 10
+                                    end_index = -1
+                                    start_index *= page
+                                else:
+                                    page += 1
+                                    end_index *= page
+                                    start_index *= (page - 1)
+
+                                print(input_tag["options"][start_index * page:int(end_index * page)], "=" * 15 + "=" * 15,
+                                      "\n(Current page: %d)\n" % page)
+                            else:
+                                if prompt.lower() in options:
+                                    data[input_tag["name"]] = prompt.lower()
+                                    in_pages = False
+                                    in_selection = False
+                                else:
+                                    print("%s not found in keys. Please try again." % prompt)
+
+                    elif value.lower() in options:
+                        data[input_tag["name"]] = value.lower()
+                        in_selection = False
+                    else:
+                        print("%s not found in keys. Please try again." % value)
+
+            else:
+                name = input_tag["id"]
+                value = input("Enter value for '%s' (input type: %s): " % (name, input_tag["type"]))
+                if value == "":
+                    if input_tag["type"] == "checkbox":
+                        data[input_tag["name"]] = 1
+                    else:
+                        data[input_tag["name"]] = input_tag["value"]
+                else:
+                    data[input_tag["name"]] = value
+
+    #print(data)
+    new_url = urljoin(url, details["action"])
+
+    if details["method"] == "post":
+        res = session.post(new_url, data=data)
+    elif details["method"] == "get":
+        res = session.get(new_url, params=data)
+
+    s = BeautifulSoup(res.content, "lxml")
+
+    card_results = []
+    print("Compiling results...")
+
+    search = s.find("div", id="searchResults").find("table", id="searchResult-table")
+    card_links = search.find_all("th")
+    for card in card_links:
+        card_info = get_card_info(main_site, card.a["href"].split("=")[1])
+        card_results.append(card_info)
+
+    # Display data based on simple search selection
     # if data["show_small"] == "0":
     #     # Simple search off
     #     search = s.find("div", id="searchResults").find("table", id="searchResult-table")
@@ -182,21 +229,22 @@ def card_search():
     #     for card in card_links:
     #         card_info = get_card_info(main_site, card.a["href"].split("=")[1])
     #         card_results.append(card_info)
-    #
+
     # else:
     #     # Simple search on
-    #     search = s.find("div", id="searchResults").find("table", id="searchResult-table-simple")
-    #     card_rows = search.find_all("tr")[1:]     # skip the first table row because it is only labels
-    #     for row in card_rows:
-    #         card_info = get_card_info(main_site, row.td.text)
-    #         card_results.append(card_info)
-    #
-    # print("Finished compilation.")
+    #     search = s.find("div", id="searchResults").find("table")
+    #     print(search)
+        # card_rows = search.find_all("tr")[1:]     # skip the first table row because it is only labels
+        # for row in card_rows:
+        #     card_info = get_card_info(main_site, row.td.text)
+        #     card_results.append(card_info)
+
+    print("Finished compilation.")
     #
     # # TODO: Return links for previous/next page in case of multiple pages
     # pages = s.find("p", class_="pageLink").find_all("a", rel=True)
     # #if pages.a["rel"]
-    # return card_results
+    return card_results
 
 
 def main():
@@ -223,7 +271,7 @@ def main():
 
     cards = card_search()
 
-    #print(cards)
+    print(cards)
 
     # card = cards[0]
     # card = stats
