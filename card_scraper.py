@@ -66,7 +66,10 @@ def get_card_info(main_site, card_id):
         elif h.text == "Trigger":
             if d.text == "":
                 # isolate trigger from file location
-                stats_dict[h.text] = d.next_element["src"].split("/")[-1].split(".")[0].capitalize()
+                if d.next_element != "\n":
+                    stats_dict[h.text] = d.next_element["src"].split("/")[-1].split(".")[0].capitalize()
+                else:
+                    stats_dict[h.text] = "-"
         else:
             # strip newlines and carriage returns
             stats_dict[h.text] = d.text.replace("\n", "").replace("\r","")
@@ -75,25 +78,22 @@ def get_card_info(main_site, card_id):
 
 
 def card_search():
+    """
+    Queries the Weiss Schwarz website and extracts its search forms to be filled by user input.
+    :return: List of cards and its information stored in a dictionary form returned by get_card_info().
+    """
     main_site = "https://en.ws-tcg.com"
     url = main_site + "/cardlist/cardsearch/exec"
     session = HTMLSession()
     res = session.get(url)
     soup = BeautifulSoup(res.content, "lxml")
-    #driver = webdriver.Firefox()
-    #driver.get(url)
 
     # find the card search forms
     initial_form = soup.find("form", class_="cardSearchForm")
     forms = soup.find("form", class_="cardSearchForm").table.find_all("td")
-    # forms = soup.find("form", class_="cardSearchForm").table.find_all("tr")
-    #print(forms)
 
     # create a dictionary of the required forms to fill out
     details = {}
-    # form_names = ["All these words","Any of these words","None of these words","Target card name",
-    #               "Target special attributes", "Target text", "Target card number",
-    #               "Has Counter ability", "Has Clock ability", "Show simple list"]
     action = initial_form.attrs.get("action").lower()
     method = initial_form.attrs.get("method", "get").lower()
     inputs = []
@@ -117,9 +117,9 @@ def card_search():
             for item in query_select:
                 in_type = "select"
                 in_name = item["name"]
-                in_value = item.attrs.get("value","0")
+                in_value = item.attrs.get("value","")
                 options = []
-                select_tags = set(item.contents)
+                select_tags = item.contents
                 for elem in select_tags:
                     options.append((elem["value"], elem.text))
                 inputs.append({"type": in_type, "name": in_name, "value": in_value, "options": options})
@@ -128,20 +128,16 @@ def card_search():
     details["method"] = method
     details["inputs"] = inputs
 
-    #print(details["inputs"])
-    #
-    # # create data to be submitted
+    # create data to be submitted
     data = {}
-    # counter = 0
     for input_tag in details["inputs"]:
         if input_tag["type"] == "hidden":
             data[input_tag["name"]] = input_tag["value"]
         elif input_tag["type"] != "submit":
-            name = ""
             if input_tag["type"] == "select":
                 name = input_tag["name"]
                 # flag for staying inside selection tag
-                options = [item_tuple[0] for item_tuple in input_tag["options"]]
+                option_keys = [item_tuple[0] for item_tuple in input_tag["options"]]
                 in_selection = True
                 while in_selection:
                     value = input("Enter value for '%s' (input type: %s) (type 'o' to see options): " % (name, input_tag["type"]))
@@ -154,9 +150,10 @@ def card_search():
                             start_index = 10
                             end_index = 10
                             print("=" * 15 + " %s Options: " % input_tag["name"] + "=" * 15)
-                            for item in sorted(input_tag["options"][start_index * (page - 1):end_index * page]):
+                            page_items = input_tag["options"][start_index * (page - 1):end_index * page]
+                            for item in page_items:
                                 print("%s  Key: %s" % (item[1], item[0]))
-                            print("=" * 15 + "=" * 15, "\n(Current page: %d)\n" % page)
+                            print("=" * 15 + "=" * 15, "\n(Current page: %d)" % page)
                             prompt = input("Enter key or  type 'prev'/'next' to navigate pages: ")
                             if prompt.lower() in ("prev", "p"):
                                 if page > 1:
@@ -164,7 +161,7 @@ def card_search():
                                 start_index *= (page - 1)
                                 end_index *= page
                                 print(input_tag["options"][start_index * page:int(end_index * page)], "=" * 15 + "=" * 15,
-                                      "\n(Current page: %d)\n" % page)
+                                      "\n(Current page: %d)" % page)
                             elif prompt.lower() in ("next", "n"):
                                 if (end_index * page) > len(input_tag["options"]):
                                     # properly display the last page if not a multiple of 10
@@ -176,16 +173,16 @@ def card_search():
                                     start_index *= (page - 1)
 
                                 print(input_tag["options"][start_index * page:int(end_index * page)], "=" * 15 + "=" * 15,
-                                      "\n(Current page: %d)\n" % page)
+                                      "\n(Current page: %d)" % page)
                             else:
-                                if prompt.lower() in options:
+                                if prompt.lower() in option_keys:
                                     data[input_tag["name"]] = prompt.lower()
                                     in_pages = False
                                     in_selection = False
                                 else:
                                     print("%s not found in keys. Please try again." % prompt)
 
-                    elif value.lower() in options:
+                    elif value.lower() in option_keys:
                         data[input_tag["name"]] = value.lower()
                         in_selection = False
                     else:
@@ -202,9 +199,9 @@ def card_search():
                 else:
                     data[input_tag["name"]] = value
 
-    #print(data)
-    new_url = urljoin(url, details["action"])
 
+    # submit forms to site
+    new_url = urljoin(url, details["action"])
     if details["method"] == "post":
         res = session.post(new_url, data=data)
     elif details["method"] == "get":
@@ -215,36 +212,56 @@ def card_search():
     card_results = []
     print("Compiling results...")
 
+    # gather all of the cards on page 1
     search = s.find("div", id="searchResults").find("table", id="searchResult-table")
     card_links = search.find_all("th")
     for card in card_links:
         card_info = get_card_info(main_site, card.a["href"].split("=")[1])
         card_results.append(card_info)
 
-    # Display data based on simple search selection
-    # if data["show_small"] == "0":
-    #     # Simple search off
-    #     search = s.find("div", id="searchResults").find("table", id="searchResult-table")
-    #     card_links = search.find_all("th")
-    #     for card in card_links:
-    #         card_info = get_card_info(main_site, card.a["href"].split("=")[1])
-    #         card_results.append(card_info)
+    # check if search results have multiple pages
+    pages = s.find("p", class_="pageLink")
+    # check for an ellipsis span which indicate multiple pages
+    # TODO: fix multiple pages
+    span_check = pages.find_all("span")
+    if span_check:
+        page_links = pages.find_all("a")[:-2]
+    else:
+        page_links = pages.find_all("a")[:-1]
+    if page_links:
+        for page in page_links:
+            new_link = main_site + page["href"]
 
-    # else:
-    #     # Simple search on
-    #     search = s.find("div", id="searchResults").find("table")
-    #     print(search)
-        # card_rows = search.find_all("tr")[1:]     # skip the first table row because it is only labels
-        # for row in card_rows:
-        #     card_info = get_card_info(main_site, row.td.text)
-        #     card_results.append(card_info)
+            new_url = urljoin(new_link, details["action"])
+            next_page = ""
+            if details["method"] == "post":
+                next_page = session.post(new_url, data=data)
+            elif details["method"] == "get":
+                next_page = session.get(new_url, params=data)
+
+            h = BeautifulSoup(next_page.content, "lxml")
+            cards = h.find("div", id="searchResults").find("table", id="searchResult-table").find_all("th")
+            # for card in cards:
+            #     card_info = get_card_info(main_site, card.a["href"].split("=")[1])
+            #     card_results.append(card_info)
 
     print("Finished compilation.")
-    #
-    # # TODO: Return links for previous/next page in case of multiple pages
-    # pages = s.find("p", class_="pageLink").find_all("a", rel=True)
-    # #if pages.a["rel"]
     return card_results
+
+
+def save_cards(card_list):
+    """
+    Opens a card list and saves information as a .txt file saved as 'card_info.txt'.
+    :param card_list: Card list to be saved. Each card is a dictionary with card information stored inside.
+    """
+    with open("card_info.txt", "w+", encoding="utf8") as card_file:
+        for card in card_list:
+            keys = list(card.keys())
+            values = list(card.values())
+            card_file.write("="*20 + "\n")
+            for i in range(len(card.keys())):
+                card_file.write("%s: %s\n" % (keys[i], values[i]))
+            card_file.write("="*20 + "\n")
 
 
 def main():
@@ -269,10 +286,14 @@ def main():
     # test AB/W31-E058
     # climax 1 AB/W31-E101
 
+    test_id = "AB/W31-E101"
+    #test get_card_info
+    #one_card = get_card_info(main_site_url, test_id)
+
+    #print(one_card)
     cards = card_search()
-
     print(cards)
-
+    save_cards(cards)
     # card = cards[0]
     # card = stats
 
